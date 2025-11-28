@@ -1,0 +1,7 @@
+{
+  "name": "MapToAddr PWA",
+  "description": "A React PWA that converts map coordinates to addresses and allows easy sharing via KakaoTalk.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
