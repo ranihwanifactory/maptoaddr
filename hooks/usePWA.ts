@@ -7,17 +7,19 @@ export const usePWA = () => {
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
-      // Prevent the mini-infobar from appearing on mobile
+      // Chrome Android 등에서 자동으로 뜨는 미니 인포바를 제어하기 위해 preventDefault()를 호출합니다.
+      // 이를 통해 우리가 만든 커스텀 설치 버튼을 보여줄 수 있습니다.
       e.preventDefault();
-      // Stash the event so it can be triggered later.
+      
+      // 나중에 트리거하기 위해 이벤트를 저장합니다.
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      // Update UI notify the user they can install the PWA
+      
+      // 설치 가능한 상태임을 UI에 알립니다.
       setIsInstallable(true);
       console.log('👋 PWA Install Prompt Captured');
     };
 
     const handleAppInstalled = () => {
-      // Log install to analytics
       console.log('🎉 PWA Installed');
       setIsInstallable(false);
       setDeferredPrompt(null);
@@ -38,14 +40,14 @@ export const usePWA = () => {
         return;
     }
     
-    // Show the install prompt
+    // 브라우저의 설치 프롬프트를 실행합니다.
     deferredPrompt.prompt();
     
-    // Wait for the user to respond to the prompt
+    // 사용자의 응답을 기다립니다.
     const { outcome } = await deferredPrompt.userChoice;
     console.log(`User response to the install prompt: ${outcome}`);
     
-    // We've used the prompt, and can't use it again, discard it
+    // 프롬프트는 한 번만 사용할 수 있으므로 초기화합니다.
     setDeferredPrompt(null);
     setIsInstallable(false);
   };
