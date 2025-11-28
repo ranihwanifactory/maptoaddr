@@ -1,0 +1,19 @@
+{
+  "name": "MaptoAddr",
+  "short_name": "MaptoAddr",
+  "description": "지도를 찍어 주소로 변환",
+  "dir": "ltr",
+  "display": "standalone",
+  "orientation": "any",
+  "scope": "/",
+  "start_url": "/",
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff",
+  "categories": ["life"],
+  "screenshots": [],
+  "icons": [{
+		"src": "/logo.png",
+		"sizes": "512x512"
+	}],
+  "shortcuts": []
+}

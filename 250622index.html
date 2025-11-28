@@ -1,0 +1,368 @@
+<html><head>
+
+<script async="" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3195939510837246" crossorigin="anonymous"></script>
+    <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>지도찍어주소!</title>
+  <meta name="description" content="지도에서 선택한 위치의 주소를 알려주고 카카오톡으로 공유하는 웹애플리케이션">
+  <meta name="author" content="hwanacoding">
+  <link rel="shortcut icon" href="icon.ico">
+  <meta name="keywords" content="hwancoding,지도찍어주소">
+  <meta name="author" content="hwancoding">
+  <meta name="og:site_name" content="지도찍어주소">
+  <meta name="og:title" content="지도찍어주소">
+  <meta name="og:description" content="지도를 찍으면 주소가 바로 확인.">
+  <meta name="og:url" content="https://maptoaddr.netlify.app">
+  <meta name="og:image" content="logo.png">
+<meta property="og:image" content="https://maptoaddr.netlify.app/logo.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
+        #map { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        #controls { 
+            position: fixed; 
+            bottom: 0px; 
+            right:50%; 
+            transform: translateX(+50%);
+            z-index: 1; 
+            background: ; 
+            padding: 10px; 
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 95%;
+            text-align: center;
+        }
+        #coordinates { 
+            font-size: 12px; 
+            margin-bottom: 10px; 
+        }
+        #address{
+            padding: 5px; 
+            border-radius: 5px;
+            font-size: 16px; 
+            margin-bottom: 20px; 
+            background:#eee;
+            width:auto;
+			color:#000;
+			font-weight:bold;
+        }
+        button {
+            font-size: 11px; 
+            width: 20%;
+            padding: 10px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 5px;
+            background-color: #FEE500;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:active {
+            background-color: #E6CF00;
+        }
+	
+        #logo {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 2;
+            width: 150px;
+            height: auto;
+			
+        }
+        #content {
+            width: 90%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px;
+            border-radius: 5px;
+            background-color: #eee;
+            color: #3e3e3e;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 5px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+<link rel="manifest" href="/manifest.json"></head>
+<body>
+    <a href="/"><img id="logo" src="tlogo.png" alt="Logo"></a>
+    <div id="map"></div>
+    <div id="controls">
+        <div id="coordinates">
+            <span id="lat"></span>, <span id="lng"></span>
+        </div>
+        <span id="address">지도를 클릭하면 주소가 표시됩니다.</span><br>
+        <button onclick="getCurrentLocation()" title="내현재위치"><img src="cur.png" height="18" alt="내현재위치"></button>
+        <button onclick="shareLocation()" title="주소를 복사합니다.">복사</button>
+        <button id="kakao-link-btn" onclick="shareKakao()" title="카카오톡으로 공유합니다.">카톡</button>
+        <!-- <button id="kakao-link-btn" onclick="plus()" title="플러스친구추가">추가</button>
+        <button id="kakao-link-btn" onclick="pluschat()" title="플러스채팅">채팅</button> -->
+        <button id="kakao-link-btn" onclick="maker()" title="hwancoding">제작자</button>
+        <textarea id="content" onclick="this.value='';">문의사항을 남겨주세요.</textarea>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close">×</span>
+            <p id="modal-message"></p>
+        </div>
+    </div>
+
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=7e88cf2e2962d67bb246f38f504dc200&amp;libraries=services"></script>
+    <script src="https://developers.kakao.com/sdk/js/kakao.min.js"></script>
+    <script>
+        Kakao.init('7e88cf2e2962d67bb246f38f504dc200');
+
+        var mapContainer = document.getElementById('map'),
+            mapOption = {
+                center: new kakao.maps.LatLng(37.566826, 126.9786567),
+                level: 3,
+                mapTypeId: kakao.maps.MapTypeId.HYBRID
+            };
+
+        var map = new kakao.maps.Map(mapContainer, mapOption);
+        var marker = new kakao.maps.Marker();
+        var geocoder = new kakao.maps.services.Geocoder();
+
+        function showModal(message) {
+            var modal = document.getElementById("modal");
+            var modalMessage = document.getElementById("modal-message");
+            var span = document.getElementsByClassName("close")[0];
+
+            modalMessage.textContent = message;
+            modal.style.display = "block";
+
+            span.onclick = function() {
+                modal.style.display = "none";
+            }
+
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            }
+        }
+
+		//geocode로 주소변환
+
+        function setAddress(lat, lng) {
+            geocoder.coord2Address(lng, lat, function(result, status) {
+                if (status === kakao.maps.services.Status.OK) {
+                    var addr = result[0].address.address_name;
+                    document.getElementById('address').innerText = addr;
+                }
+            });
+        }
+
+        kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
+            var latlng = mouseEvent.latLng;
+            marker.setPosition(latlng);
+            marker.setMap(map);
+
+            var lat = latlng.getLat().toFixed(6);
+            var lng = latlng.getLng().toFixed(6);
+            document.getElementById('lat').innerText = lat;
+            document.getElementById('lng').innerText = lng;
+
+            setAddress(lat, lng);
+        });
+
+        function shareLocation() {
+            var lat = document.getElementById('lat').innerText;
+            var lng = document.getElementById('lng').innerText;
+            var content = document.getElementById('content').value;
+
+            if (lat && lng) {
+                var shareUrl = window.location.origin + window.location.pathname + '?lat=' + lat + '&lng=' + lng + '&content=' + content;
+                copyToClipboard(shareUrl);
+            } else {
+                showModal('지도에서 위치를 선택해주세요.');
+            }
+        }
+
+        function shareKakao() {
+            var lat = document.getElementById('lat').innerText;
+            var lng = document.getElementById('lng').innerText;
+            var content = document.getElementById('content').value;
+            var addr = document.getElementById('address').innerText;
+
+            if (lat && lng) {
+                var shareUrl = window.location.origin + window.location.pathname + '?lat=' + lat + '&lng=' + lng+ '&content=' + content;
+
+                Kakao.Link.sendDefault({
+                    objectType: 'location',
+                    address: addr,
+                    addressTitle: '공유된 위치',
+                    content: {
+                        title: '위치 공유',
+                        description: content,
+                        imageUrl: 'https://maptoaddr.netlify.app/logo.png',
+                        link: {
+                            mobileWebUrl: shareUrl,
+                            webUrl: shareUrl
+                        }
+                    },
+                    buttons: [
+                        {
+                            title: '웹으로 보기',
+                            link: {
+                                mobileWebUrl: shareUrl,
+                                webUrl: shareUrl
+                            }
+                        }
+                    ]
+                });
+            } else {
+                showModal('지도에서 위치를 선택해주세요.');
+            }
+        }
+
+        function plus() {
+            location.href="http://pf.kakao.com/_gNJpG/friend";
+        }
+
+        function pluschat() {
+            location.href="http://pf.kakao.com/_gNJpG/chat";
+        }
+
+        function maker() {
+            location.href="https://ranihwanibaby.tistory.com";
+        }
+
+		function find() {
+			var lat = document.getElementById('lat').innerText;
+            var lng = document.getElementById('lng').innerText;
+            var content = document.getElementById('content').value;
+            var addr = document.getElementById('address').innerText;
+
+            location.href="https://map.kakao.com/link/to/"+addr;
+        }
+
+        function copyToClipboard(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showModal('공유 URL이 클립보드에 복사되었습니다.');
+                });
+            } else {
+                var textArea = document.createElement("textarea");
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showModal('공유 URL이 클립보드에 복사되었습니다.');
+                } catch (err) {
+                    console.error('클립보드 복사 실패:', err);
+                }
+                document.body.removeChild(textArea);
+            }
+        }
+
+        function loadMarkerFromUrl() {
+            var urlParams = new URLSearchParams(window.location.search);
+            var lat = urlParams.get('lat');
+            var lng = urlParams.get('lng');
+            var content = urlParams.get('content');
+
+            if (lat && lng) {
+                var position = new kakao.maps.LatLng(lat, lng);
+                marker.setPosition(position);
+                marker.setMap(map);
+                map.setCenter(position);
+
+                document.getElementById('lat').innerText = parseFloat(lat).toFixed(6);
+                document.getElementById('lng').innerText = parseFloat(lng).toFixed(6);
+                document.getElementById('content').value = content;
+                setAddress(lat, lng);
+                return true;
+            }
+            return false;
+        }
+
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    var lat = position.coords.latitude;
+                    var lng = position.coords.longitude;
+                    var locPosition = new kakao.maps.LatLng(lat, lng);
+
+                    marker.setPosition(locPosition);
+                    marker.setMap(map);
+                    map.setCenter(locPosition);
+
+
+                    document.getElementById('lat').innerText = lat.toFixed(6);
+                    document.getElementById('lng').innerText = lng.toFixed(6);
+                    //setAddress(lat, lng);
+                }, function(error) {
+                    console.error('Geolocation error:', error);
+                    showModal('현재 위치를 가져올 수 없습니다.');
+                });
+            } else {
+                showModal('이 브라우저에서는 Geolocation이 지원되지 않습니다.');
+            }
+        }
+		
+
+        function setDefaultLocation() {
+            var defaultPosition = new kakao.maps.LatLng(37.566826, 126.9786567);
+            map.setCenter(defaultPosition);
+        }
+
+        function initializeMap() {
+            if (!loadMarkerFromUrl()) {
+                //setDefaultLocation();
+				getCurrentLocation();
+            }
+        }
+
+        window.onload = initializeMap;
+    </script>
+
+<script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./serviceWorker.js')
+          .then(registration => {
+            console.log('Service worker registered:', registration);
+          })
+          .catch(error => {
+            console.log('Service worker registration failed:', error);
+          });
+      });
+    }
+  </script></body></html>
