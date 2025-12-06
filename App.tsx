@@ -1,97 +1,112 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { MapComponent } from './components/MapComponent';
-import { ControlPanel } from './components/ControlPanel';
-import { InstallPrompt } from './components/InstallPrompt';
-import { usePWA } from './hooks/usePWA';
-import { LocationInfo } from './types';
+import React, { useState, useCallback } from 'react';
+import { MapContainer } from './components/MapContainer';
+import { AddressPanel } from './components/AddressPanel';
+import { GeocoderResult, KakaoMap } from './types';
+import { getCurrentLocation } from './services/mapService';
+import { CompassIcon } from './components/Icons';
 
-const App: React.FC = () => {
-  const [locationInfo, setLocationInfo] = useState<LocationInfo>({
-    lat: 37.566826,
-    lng: 126.9786567,
-    address: '지도를 클릭하면 주소가 표시됩니다.',
-  });
-  const [memo, setMemo] = useState('');
+function App() {
+  const [addressInfo, setAddressInfo] = useState<GeocoderResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { isInstallable, installApp } = usePWA();
+  const [mapInstance, setMapInstance] = useState<KakaoMap | null>(null);
 
-  // Load Kakao SDK for sharing
-  useEffect(() => {
-    if (window.Kakao && !window.Kakao.isInitialized()) {
-      window.Kakao.init('7e88cf2e2962d67bb246f38f504dc200');
+  const handleAddressUpdate = useCallback((info: GeocoderResult | null) => {
+    setAddressInfo(info);
+  }, []);
+
+  const handleLoadingChange = useCallback((loading: boolean) => {
+    setIsLoading(loading);
+  }, []);
+
+  const handleMoveToCurrentLocation = async () => {
+    if (!mapInstance) return;
+    
+    // Optimistic loading state
+    setIsLoading(true);
+    try {
+      const pos = await getCurrentLocation();
+      const moveLatLon = new window.kakao.maps.LatLng(pos.lat, pos.lng);
+      mapInstance.panTo(moveLatLon);
+      // The 'idle' event on map will trigger the address update, but we can keep loading true briefly
+    } catch (error) {
+      alert("현재 위치를 가져올 수 없습니다. 위치 권한을 확인해주세요.");
+      setIsLoading(false);
     }
-  }, []);
+  };
 
-  const handleLocationUpdate = useCallback((newInfo: Partial<LocationInfo>) => {
-    setLocationInfo((prev) => ({ ...prev, ...newInfo }));
-  }, []);
+  const handleShare = async () => {
+    if (!addressInfo) return;
+
+    const title = '위치 공유';
+    const text = addressInfo.road_address 
+      ? `${addressInfo.road_address.address_name}\n(${addressInfo.address.address_name})`
+      : addressInfo.address.address_name;
+    
+    // Create a link to Kakao Map or Google Map
+    // Getting current center
+    let url = window.location.href;
+    if (mapInstance) {
+        const center = mapInstance.getCenter();
+        // Construct a daum map url for better utility
+        // https://map.kakao.com/link/map/Address,lat,lng (Requires name, but we can use address)
+        // Or simpler: just share the text.
+    }
+
+    const shareData = {
+      title: title,
+      text: `[주소 공유]\n${text}`,
+      url: url,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.log('Error sharing:', err);
+      }
+    } else {
+      // Fallback to clipboard
+      try {
+        await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
+        alert('주소가 클립보드에 복사되었습니다.');
+      } catch (err) {
+        alert('공유 기능을 지원하지 않는 브라우저입니다.');
+      }
+    }
+  };
 
   return (
-    <div className="relative w-full h-[100dvh] overflow-hidden bg-gray-100 font-sans text-gray-900">
-      {/* Map Background */}
-      <div className="absolute inset-0 z-0">
-        <MapComponent 
-          center={{ lat: locationInfo.lat, lng: locationInfo.lng }}
-          onLocationSelect={handleLocationUpdate}
-          setIsLoading={setIsLoading}
+    <div className="relative w-full h-full overflow-hidden flex flex-col">
+      {/* Map Layer */}
+      <div className="flex-1 relative z-0">
+        <MapContainer 
+          onAddressUpdate={handleAddressUpdate} 
+          onLoadingChange={handleLoadingChange}
+          setMapRef={setMapInstance}
         />
-      </div>
-
-      {/* Header / Brand */}
-      <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
-        <div className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-full shadow-lg border border-white/50 flex items-center gap-2">
-            <span className="text-indigo-600 font-black text-lg">📍 지도찍어주소</span>
+        
+        {/* Floating Controls Layer */}
+        <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+           <button
+            onClick={handleMoveToCurrentLocation}
+            className="bg-white p-3 rounded-full shadow-md text-gray-700 hover:text-blue-600 active:bg-gray-50 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            aria-label="현재 위치로 이동"
+          >
+            <CompassIcon className="w-6 h-6" />
+          </button>
         </div>
       </div>
 
-      {/* Install Button (PWA) */}
-      {isInstallable && (
-        <div className="absolute top-4 right-4 z-10 animate-bounce">
-          <InstallPrompt onInstall={installApp} />
-        </div>
-      )}
-
-      {/* Loading Indicator */}
-      {isLoading && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-white/90 px-6 py-4 rounded-xl shadow-2xl flex flex-col items-center gap-3 backdrop-blur-sm">
-          <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-          <span className="font-semibold text-gray-700">위치 확인 중...</span>
-        </div>
-      )}
-
-      {/* Bottom Controls */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 p-4 pb-6 bg-gradient-to-t from-white/95 via-white/90 to-transparent pt-12">
-        <div className="max-w-md mx-auto w-full bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-white/50 overflow-hidden">
-            
-            {/* Info Display */}
-            <div className="p-4 border-b border-gray-100">
-                <div className="flex justify-between items-center text-xs text-gray-500 font-mono mb-2 bg-gray-50 p-2 rounded-lg">
-                    <span>LAT: {locationInfo.lat.toFixed(6)}</span>
-                    <span>LNG: {locationInfo.lng.toFixed(6)}</span>
-                </div>
-                <div className="text-base font-bold text-gray-800 leading-tight break-keep min-h-[3rem] flex items-center">
-                    {locationInfo.address}
-                </div>
-            </div>
-
-            {/* Controls */}
-            <div className="p-2 bg-gray-50/50">
-                <ControlPanel 
-                    locationInfo={locationInfo} 
-                    memo={memo} 
-                    setMemo={setMemo} 
-                    onGetCurrentLocation={() => {
-                        // Triggered from MapComponent via a ref or context normally, 
-                        // but simplified here: we pass a signal or use a global event.
-                        // For this simple app, we can just reload or dispatch a custom event
-                        window.dispatchEvent(new CustomEvent('request-current-location'));
-                    }}
-                />
-            </div>
-        </div>
+      {/* Bottom Panel Layer */}
+      <div className="relative z-20">
+        <AddressPanel 
+          addressInfo={addressInfo} 
+          isLoading={isLoading} 
+          onShare={handleShare} 
+        />
       </div>
     </div>
   );
-};
+}
 
 export default App;

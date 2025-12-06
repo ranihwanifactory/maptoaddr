@@ -1,6 +1,6 @@
 {
-  "name": "MapToAddr PWA",
-  "description": "A React PWA that converts map coordinates to addresses and allows easy sharing via KakaoTalk.",
+  "name": "Map Picker",
+  "description": "A location picker app using Daum/Kakao Maps API. Select a location on the map to see its address and share it.",
   "requestFramePermissions": [
     "geolocation"
   ]
